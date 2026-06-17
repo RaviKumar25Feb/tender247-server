@@ -1,32 +1,40 @@
 const express = require("express");
 const cookieParser = require("cookie-parser");
+const cors = require("cors");
 require("dotenv").config();
+
 const { dbConnect } = require("./configs/dbConnect");
 const authRoutes = require("./routes/auth.routes");
 const tenderRoutes = require("./routes/tender.routes");
+
 const app = express();
 const PORT = process.env.PORT || 5000;
-const cors = require("cors");
 
+// ================= CORS =================
 const allowedOrigins = [
-  "http://localhost:5173/",
-  "",
+  "http://localhost:5173",
+  "https://tender247-frontend.vercel.app", // 🔁 change this to your real frontend URL
 ];
 
 app.use(
   cors({
     origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
+      // allow Postman / server-to-server
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
       }
+
+      console.log("❌ Blocked CORS origin:", origin);
+
+      // IMPORTANT: do NOT throw error (prevents crash)
+      return callback(null, false);
     },
     credentials: true,
   }),
 );
 
-let server;
 // ================= MIDDLEWARE =================
 app.use(express.json());
 app.use(cookieParser());
@@ -49,7 +57,7 @@ app.get("/health", (req, res) => {
   });
 });
 
-// ================= GLOBAL ERROR HANDLERS =================
+// ================= ERROR HANDLERS =================
 process.on("uncaughtException", (err) => {
   console.error("❌ Uncaught Exception:", err);
 });
@@ -59,13 +67,14 @@ process.on("unhandledRejection", (err) => {
 });
 
 // ================= GRACEFUL SHUTDOWN =================
+let server;
+
 const gracefulShutdown = async (signal) => {
   console.log(`⚠️ ${signal} received. Shutting down...`);
 
   try {
     if (server) {
       await new Promise((resolve) => server.close(resolve));
-
       console.log("✅ HTTP server closed");
     }
 
@@ -91,7 +100,6 @@ const startServer = async () => {
     });
   } catch (err) {
     console.error("❌ Server startup failed:", err);
-
     process.exit(1);
   }
 };
