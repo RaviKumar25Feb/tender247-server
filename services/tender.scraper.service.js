@@ -120,43 +120,74 @@ const syncCpppTenders = async () => {
 
           title: detailData.title,
           brief: detailData.brief,
-          description: detailData.description,
+          description: detailData.description || detailData.workDescription,
 
           workDescription: detailData.workDescription,
 
-          organization: detailData.organisation,
-          department: detailData.department,
+          organization:
+            detailData.organization ||
+            detailData.organisation ||
+            detailData.rawData?.organization,
+
+          department: detailData.department || detailData.rawData?.department,
+
+          category: detailData.category || detailData.rawData?.category,
 
           location: detailData.location,
+
           city: detailData.city,
+
           state: detailData.state,
 
-          estimatedCost: parseAmount(detailData.tenderValue),
+          pincode: detailData.pincode || detailData.rawData?.pincode,
+
+          estimatedCost: parseAmount(
+            detailData.estimatedCost ||
+              detailData.tenderValue ||
+              detailData.rawData?.estimatedCost,
+          ),
+
           emdAmount: parseAmount(detailData.emdAmount),
+
           tenderFee: parseAmount(detailData.tenderFee),
 
           publishDate: detailData.publishDate,
-          submissionDate: detailData.submissionDate,
-          closingDate: detailData.closingDate,
+
+          submissionDate:
+            detailData.submissionDate || detailData.rawData?.submissionDate,
+
+          openingDate:
+            detailData.openingDate || detailData.rawData?.openingDate,
+
+          closingDate:
+            detailData.closingDate || detailData.rawData?.closingDate,
 
           documents: detailData.documents || [],
+
           boqItems: detailData.boqItems || [],
 
           rawData: detailData,
         };
+
+        // //print raw data
+        // console.log("RAW INPUT:", JSON.stringify(rawInput, null, 2));
 
         // =========================
         // NORMALIZE
         // =========================
         const normalizedData = normalizeTender(rawInput);
 
+        // //print normalized data
+        // console.log("NORMALIZED:", JSON.stringify(normalizedData, null, 2));
+
         // =========================
         // SAVE
         // =========================
-        await saveTender({
+        const res = await saveTender({
           ...normalizedData,
           lastScrapedAt: new Date(),
         });
+        console.log(res);
 
         console.log(`✅ Saved: ${normalizedData.sourceTenderId}`);
       } catch (err) {

@@ -6,8 +6,9 @@ async function scrapeTenderDetail(page) {
       throw new Error("Page already closed");
     }
 
-    // safer wait (avoid strict dependency on loadState)
-    await page.waitForSelector("body", { timeout: 30000 });
+    await page.waitForSelector("body", {
+      timeout: 30000,
+    });
 
     const text = await page.textContent("body");
 
@@ -15,13 +16,18 @@ async function scrapeTenderDetail(page) {
       throw new Error("Empty page content");
     }
 
-    // normalize whitespace once (VERY IMPORTANT IMPROVEMENT)
     const cleanText = text.replace(/\s+/g, " ");
+
+    const safeGet = (start, end) =>
+      getBetween(cleanText, start, end)?.trim() || null;
+
+    const safeLastGet = (start, end) =>
+      getLastBetween(cleanText, start, end)?.trim() || null;
 
     // =========================
     // CORE IDENTIFIER
     // =========================
-    const tenderId = getBetween(cleanText, "Tender ID", "Withdrawal Allowed");
+    const tenderId = safeGet("Tender ID", "Withdrawal Allowed");
 
     if (!tenderId) {
       console.log("⚠️ Tender ID not found");
@@ -29,18 +35,51 @@ async function scrapeTenderDetail(page) {
     }
 
     // =========================
-    // SAFE EXTRACTION HELPERS
+    // DOCUMENTS SCRAPING
     // =========================
-    const safeGet = (start, end) => getBetween(cleanText, start, end) || null;
+    const documents = [];
 
-    const safeLastGet = (start, end) =>
-      getLastBetween(cleanText, start, end) || null;
+    try {
+      const links = await page.locator("a").all();
+
+      for (const link of links) {
+        const name = (await link.textContent())?.trim();
+        const href = await link.getAttribute("href");
+
+        if (!name || !href) continue;
+
+        const lowerName = name.toLowerCase();
+
+        const isTenderDoc =
+          lowerName.includes(".pdf") ||
+          lowerName.includes(".xls") ||
+          lowerName.includes("boq") ||
+          lowerName.includes("download as zip") ||
+          lowerName.includes("tendernotice");
+
+        if (!isTenderDoc) continue;
+
+        documents.push({
+          name,
+          url: href.startsWith("http")
+            ? href
+            : `https://etenders.gov.in${href}`,
+          type:
+            lowerName.includes("boq") || lowerName.includes(".xls")
+              ? "BOQ"
+              : "TENDER_DOC",
+        });
+      }
+    } catch (err) {
+      console.log("⚠️ Documents extraction failed");
+    }
 
     // =========================
-    // RETURN STRUCTURED DATA
+    // RETURN DATA
     // =========================
     return {
-      organisation: safeGet("Organisation Chain", "Tender Reference Number"),
+      // BASIC
+      organization: safeGet("Organisation Chain", "Tender Reference Number"),
 
       tenderReferenceNumber: safeGet("Tender Reference Number", "Tender ID"),
 
@@ -50,22 +89,53 @@ async function scrapeTenderDetail(page) {
 
       workDescription: safeGet("Work Description", "NDA/Pre Qualification"),
 
-      tenderValue: safeGet("Tender Value in ₹", "Product Category"),
+      category:
+        safeGet("Product Category", "Sub category") ||
+        safeGet("Tender Category", "No. of Covers"),
 
-      location: safeLastGet("Location", "Pincode"),
+      // FINANCIAL
+      estimatedCost: safeGet("Tender Value in ₹", "Product Category"),
 
       emdAmount: safeGet("EMD Amount in ₹", "EMD Exemption Allowed"),
 
       tenderFee: safeGet("Tender Fee in ₹", "Fee Payable To"),
 
-      // optional debugging meta (VERY USEFUL IN PRODUCTION)
+      // LOCATION
+      location: safeLastGet("Location", "Pincode"),
+
+      pincode: safeGet("Pincode", "Pre Bid Meeting Place"),
+
+      // DATES
+      publishDate: safeGet("Published Date", "Bid Opening Date"),
+
+      openingDate: safeGet(
+        "Bid Opening Date",
+        "Document Download / Sale Start Date",
+      ),
+
+      submissionDate: safeGet("Bid Submission End Date", "Tenders Documents"),
+
+      closingDate: safeGet("Bid Submission End Date", "Tenders Documents"),
+
+      // OPTIONAL
+      department: safeGet("Tender Inviting Authority", "Name"),
+
+      // DOCUMENTS
+      documents,
+
+      // FUTURE
+      boqItems: [],
+
+      // DEBUG
       _meta: {
         extractedAt: new Date(),
-        length: cleanText.length,
+        pageLength: cleanText.length,
+        documentsFound: documents.length,
       },
     };
   } catch (error) {
     console.error("❌ scrapeTenderDetail error:", error.message);
+
     return null;
   }
 }
