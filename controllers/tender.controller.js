@@ -18,47 +18,72 @@ const getTenders = async (req, res) => {
       closingTo,
     } = req.query;
 
-    // sanitize pagination (IMPORTANT)
     page = Math.max(1, Number(page));
     limit = Math.min(100, Math.max(1, Number(limit)));
 
     const filter = {};
 
-    // text search
-    if (q) {
-      filter.$text = { $search: q };
+    // Text Search
+    if (q?.trim()) {
+      filter.$text = {
+        $search: q.trim(),
+      };
     }
 
-    // location filters
+    // Location Filters
     if (state) filter.state = state;
     if (city) filter.city = city;
 
-    // cost filter
+    // Cost Filters
     if (minValue || maxValue) {
       filter.estimatedCost = {};
-      if (minValue) filter.estimatedCost.$gte = Number(minValue);
-      if (maxValue) filter.estimatedCost.$lte = Number(maxValue);
+
+      if (minValue) {
+        filter.estimatedCost.$gte = Number(minValue);
+      }
+
+      if (maxValue) {
+        filter.estimatedCost.$lte = Number(maxValue);
+      }
     }
 
-    // date filter
+    // Date Filters
     if (closingFrom || closingTo) {
       filter.submissionDate = {};
-      if (closingFrom) filter.submissionDate.$gte = new Date(closingFrom);
-      if (closingTo) filter.submissionDate.$lte = new Date(closingTo);
+
+      if (closingFrom) {
+        filter.submissionDate.$gte = new Date(closingFrom);
+      }
+
+      if (closingTo) {
+        filter.submissionDate.$lte = new Date(closingTo);
+      }
     }
 
     const skip = (page - 1) * limit;
 
     const [tenders, total] = await Promise.all([
       Tender.find(filter, {
-        _id: 0,
+        _id: 1,
         sourceTenderId: 1,
+
         title: 1,
+        brief: 1,
+
+        category: 1,
+
+        organization: 1,
+        department: 1,
+
         state: 1,
         city: 1,
-        department: 1,
+
         estimatedCost: 1,
+
+        publishDate: 1,
         submissionDate: 1,
+
+        status: 1,
       })
         .sort({ submissionDate: -1 })
         .skip(skip)
@@ -113,7 +138,7 @@ const getTenderById = async (req, res) => {
 };
 
 // =========================
-// STATES
+// GET STATES
 // =========================
 const getStates = async (req, res) => {
   try {
@@ -121,7 +146,7 @@ const getStates = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      data: states,
+      data: states.filter(Boolean).sort(),
     });
   } catch (error) {
     return res.status(500).json({
@@ -132,15 +157,23 @@ const getStates = async (req, res) => {
 };
 
 // =========================
-// CITIES
+// GET CITIES
 // =========================
 const getCities = async (req, res) => {
   try {
-    const cities = await Tender.distinct("city");
+    const { state } = req.query;
+
+    const filter = {};
+
+    if (state) {
+      filter.state = state;
+    }
+
+    const cities = await Tender.distinct("city", filter);
 
     return res.status(200).json({
       success: true,
-      data: cities,
+      data: cities.filter(Boolean).sort(),
     });
   } catch (error) {
     return res.status(500).json({
@@ -151,11 +184,41 @@ const getCities = async (req, res) => {
 };
 
 // =========================
-// SCRAPER TRIGGER
+// DASHBOARD STATS
+// =========================
+const getStats = async (req, res) => {
+  try {
+    const [totalTenders, activeTenders, states] = await Promise.all([
+      Tender.countDocuments(),
+
+      Tender.countDocuments({
+        status: "ACTIVE",
+      }),
+
+      Tender.distinct("state"),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        totalTenders,
+        activeTenders,
+        totalStates: states.length,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// =========================
+// TRIGGER SCRAPER
 // =========================
 const triggerTenderSync = async (req, res) => {
   try {
-    // IMPORTANT: avoid blocking API response
     syncCpppTenders().catch((err) => {
       console.error("Scraper failed:", err.message);
     });
@@ -177,5 +240,6 @@ module.exports = {
   getTenderById,
   getStates,
   getCities,
+  getStats,
   triggerTenderSync,
 };

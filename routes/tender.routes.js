@@ -6,17 +6,21 @@ const {
   getTenderById,
   getStates,
   getCities,
+  getStats,
   triggerTenderSync,
 } = require("../controllers/tender.controller");
 
 router.get("/", getTenders);
+
+router.get("/stats", getStats);
+
 router.get("/states", getStates);
+
 router.get("/cities", getCities);
 
-// Fetch tenders using Scraping
 router.get("/sync-tenders", triggerTenderSync);
 
-// IMPORTANT: restrict to Mongo ObjectId only
+// ALWAYS KEEP THIS LAST
 router.get("/:id", getTenderById);
 
 module.exports = router;
