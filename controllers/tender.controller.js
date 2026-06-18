@@ -161,22 +161,23 @@ const getStates = async (req, res) => {
 // =========================
 const getCities = async (req, res) => {
   try {
-    const { state } = req.query;
-
     const filter = {};
 
-    if (state) {
-      filter.state = state;
+    if (req.query.state) {
+      filter.state = req.query.state;
     }
 
-    const cities = await Tender.distinct("city", filter);
+    const cities = await Tender.distinct(
+      "city",
+      filter
+    );
 
-    return res.status(200).json({
+    res.status(200).json({
       success: true,
-      data: cities.filter(Boolean).sort(),
+      data: cities,
     });
   } catch (error) {
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: error.message,
     });
