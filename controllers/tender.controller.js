@@ -9,13 +9,19 @@ const getTenders = async (req, res) => {
     let {
       page = 1,
       limit = 20,
+
       q,
+
       state,
       city,
+
       minValue,
       maxValue,
+
       closingFrom,
       closingTo,
+
+      sortBy = "latest",
     } = req.query;
 
     page = Math.max(1, Number(page));
@@ -23,18 +29,32 @@ const getTenders = async (req, res) => {
 
     const filter = {};
 
-    // Text Search
+    // ======================
+    // SEARCH
+    // ======================
+
     if (q?.trim()) {
       filter.$text = {
         $search: q.trim(),
       };
     }
 
-    // Location Filters
-    if (state) filter.state = state;
-    if (city) filter.city = city;
+    // ======================
+    // LOCATION
+    // ======================
 
-    // Cost Filters
+    if (state) {
+      filter.state = state;
+    }
+
+    if (city) {
+      filter.city = city;
+    }
+
+    // ======================
+    // TENDER VALUE
+    // ======================
+
     if (minValue || maxValue) {
       filter.estimatedCost = {};
 
@@ -47,7 +67,10 @@ const getTenders = async (req, res) => {
       }
     }
 
-    // Date Filters
+    // ======================
+    // CLOSING DATE
+    // ======================
+
     if (closingFrom || closingTo) {
       filter.submissionDate = {};
 
@@ -60,15 +83,44 @@ const getTenders = async (req, res) => {
       }
     }
 
+    // ======================
+    // SORTING
+    // ======================
+
+    let sortOption = {
+      submissionDate: -1,
+    };
+
+    if (sortBy === "value_high") {
+      sortOption = {
+        estimatedCost: -1,
+      };
+    }
+
+    if (sortBy === "value_low") {
+      sortOption = {
+        estimatedCost: 1,
+      };
+    }
+
+    if (sortBy === "publish_latest") {
+      sortOption = {
+        publishDate: -1,
+      };
+    }
+
     const skip = (page - 1) * limit;
 
     const [tenders, total] = await Promise.all([
       Tender.find(filter, {
         _id: 1,
+
         sourceTenderId: 1,
+        sourcePortal: 1,
 
         title: 1,
         brief: 1,
+        description: 1,
 
         category: 1,
 
@@ -77,15 +129,18 @@ const getTenders = async (req, res) => {
 
         state: 1,
         city: 1,
+        location: 1,
 
         estimatedCost: 1,
+        emdAmount: 1,
 
         publishDate: 1,
         submissionDate: 1,
+        closingDate: 1,
 
         status: 1,
       })
-        .sort({ submissionDate: -1 })
+        .sort(sortOption)
         .skip(skip)
         .limit(limit)
         .lean(),
@@ -95,13 +150,18 @@ const getTenders = async (req, res) => {
 
     return res.status(200).json({
       success: true,
+
       page,
       limit,
+
       total,
       pages: Math.ceil(total / limit),
+
       data: tenders,
     });
   } catch (error) {
+    console.error(error);
+
     return res.status(500).json({
       success: false,
       message: error.message,
@@ -167,10 +227,7 @@ const getCities = async (req, res) => {
       filter.state = req.query.state;
     }
 
-    const cities = await Tender.distinct(
-      "city",
-      filter
-    );
+    const cities = await Tender.distinct("city", filter);
 
     res.status(200).json({
       success: true,
