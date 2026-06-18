@@ -12,8 +12,8 @@ const PORT = process.env.PORT || 5000;
 
 // ================= CORS =================
 const allowedOrigins = [
-  "http://localhost:5173",
-  "https://tender247-website.vercel.app/", // 🔁 change this to your real frontend URL
+  "https://tender247-website.vercel.app",
+  "http://localhost:5153",
 ];
 
 app.use(
