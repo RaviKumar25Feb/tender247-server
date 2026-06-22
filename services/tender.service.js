@@ -2,33 +2,49 @@ const Tender = require("../models/tender.model");
 
 const saveTender = async (tenderData) => {
   try {
-    if (!tenderData?.sourcePortal || !tenderData?.sourceTenderId) {
-      throw new Error("Missing required identifiers");
+    if (!tenderData?.sourcePortal) {
+      throw new Error("Missing sourcePortal");
     }
 
-    const result = await Tender.findOneAndUpdate(
-      {
-        sourcePortal: tenderData.sourcePortal,
-        sourceTenderId: tenderData.sourceTenderId,
+    if (!tenderData?.sourceTenderId) {
+      throw new Error("Missing sourceTenderId");
+    }
+
+    const filter = {
+      sourcePortal: tenderData.sourcePortal,
+      sourceTenderId: tenderData.sourceTenderId,
+    };
+
+    const update = {
+      $set: {
+        ...tenderData,
+        updatedAt: new Date(),
       },
-      {
-        $set: {
-          ...tenderData,
-          updatedAt: new Date(),
-        },
-        $setOnInsert: {
-          createdAt: new Date(),
-        },
+      $setOnInsert: {
+        createdAt: new Date(),
       },
-      {
-        upsert: true,
-        returnDocument: "after", // ✅ FIXED HERE
-      },
+    };
+
+    const options = {
+      upsert: true,
+      new: true,
+      setDefaultsOnInsert: true,
+      runValidators: true,
+    };
+
+    const tender = await Tender.findOneAndUpdate(
+      filter,
+      update,
+      options,
     );
 
-    return result;
+    return tender;
   } catch (error) {
-    console.error("❌ saveTender failed:", error.message);
+    console.error(
+      `❌ saveTender failed [${tenderData?.sourcePortal}:${tenderData?.sourceTenderId}]`,
+      error.message,
+    );
+
     throw error;
   }
 };

@@ -47,7 +47,6 @@ const tenderSchema = new mongoose.Schema(
 
     sourceUrl: {
       type: String,
-      index: true,
     },
 
     tenderReferenceNumber: {
@@ -145,7 +144,6 @@ const tenderSchema = new mongoose.Schema(
     // =========================
     keywords: {
       type: [String],
-      index: true,
     },
 
     // =========================
@@ -157,6 +155,62 @@ const tenderSchema = new mongoose.Schema(
       default: "ACTIVE",
       index: true,
     },
+    // =========================
+    // CPPP EXTRA DETAILS
+    // =========================
+
+    subCategory: String,
+
+    tenderCategory: {
+      type: String,
+      index: true,
+    },
+
+    tenderType: String,
+
+    contractType: String,
+
+    formOfContract: String,
+
+    noOfCovers: Number,
+
+    bidValidity: Number,
+
+    periodOfWork: Number,
+
+    ndaPreQualification: String,
+
+    authorityName: String,
+
+    address: String,
+
+    paymentMode: String,
+
+    emdPayableTo: String,
+
+    emdPayableAt: String,
+
+    bidOpeningPlace: String,
+
+    preBidMeetingPlace: String,
+
+    preBidMeetingAddress: String,
+
+    preBidMeetingDate: Date,
+
+    bidSubmissionStartDate: Date,
+
+    documentDownloadStartDate: Date,
+
+    documentDownloadEndDate: Date,
+
+    clarificationStartDate: Date,
+
+    clarificationEndDate: Date,
+
+    nitDocument: String,
+
+    workItemDocuments: String,
 
     // =========================
     // SCRAPING META
@@ -187,6 +241,7 @@ tenderSchema.index(
     city: "text",
     state: "text",
   },
+
   {
     weights: {
       title: 5,

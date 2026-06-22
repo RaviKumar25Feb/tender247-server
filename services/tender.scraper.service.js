@@ -13,19 +13,6 @@ const createPage = async (browser) => {
   return { page, context };
 };
 
-const parseAmount = (value) => {
-  if (!value) return null;
-
-  const num = Number(
-    value
-      .toString()
-      .replace(/,/g, "")
-      .replace(/[^\d.]/g, ""),
-  );
-
-  return isNaN(num) ? null : num;
-};
-
 const syncCpppTenders = async () => {
   console.log("🚀 CPPP SCRAPER STARTED");
 
@@ -115,41 +102,57 @@ const syncCpppTenders = async () => {
         const rawInput = {
           sourcePortal: "CPPP",
           sourceTenderId: detailData.tenderId,
-
+sourceUrl: detailData.sourceUrl,
           tenderReferenceNumber: detailData.tenderReferenceNumber,
-
+          subCategory: detailData.subCategory,
+          tenderCategory: detailData.tenderCategory,
+          tenderType: detailData.tenderType,
+          contractType: detailData.contractType,
+          formOfContract: detailData.formOfContract,
+          noOfCovers: detailData.noOfCovers,
+          bidValidity: detailData.bidValidity,
+          periodOfWork: detailData.periodOfWork,
+          ndaPreQualification: detailData.ndaPreQualification,
+          authorityName: detailData.authorityName,
+          address: detailData.address,
+          paymentMode: detailData.paymentMode,
+          emdPayableTo: detailData.emdPayableTo,
+          emdPayableAt: detailData.emdPayableAt,
+          bidOpeningPlace: detailData.bidOpeningPlace,
+          preBidMeetingPlace: detailData.preBidMeetingPlace,
+          preBidMeetingAddress: detailData.preBidMeetingAddress,
+          preBidMeetingDate: detailData.preBidMeetingDate,
+          bidSubmissionStartDate: detailData.bidSubmissionStartDate,
+          documentDownloadStartDate: detailData.documentDownloadStartDate,
+          documentDownloadEndDate: detailData.documentDownloadEndDate,
+          clarificationStartDate: detailData.clarificationStartDate,
+          clarificationEndDate: detailData.clarificationEndDate,
+          nitDocument: detailData.nitDocument,
+          workItemDocuments: detailData.workItemDocuments,
           title: detailData.title,
           brief: detailData.brief,
           description: detailData.description || detailData.workDescription,
 
           workDescription: detailData.workDescription,
 
-          organization:
-            detailData.organization ||
-            detailData.organisation ||
-            detailData.rawData?.organization,
+          organization: detailData.organization,
 
-          department: detailData.department || detailData.rawData?.department,
+          department: detailData.department,
 
-          category: detailData.category || detailData.rawData?.category,
+          category: detailData.category,
+
+          pincode: detailData.pincode,
 
           location: detailData.location,
 
           city: detailData.city,
 
           state: detailData.state,
+          estimatedCost: detailData.estimatedCost || detailData.tenderValue,
 
-          pincode: detailData.pincode || detailData.rawData?.pincode,
+          emdAmount: detailData.emdAmount,
 
-          estimatedCost: parseAmount(
-            detailData.estimatedCost ||
-              detailData.tenderValue ||
-              detailData.rawData?.estimatedCost,
-          ),
-
-          emdAmount: parseAmount(detailData.emdAmount),
-
-          tenderFee: parseAmount(detailData.tenderFee),
+          tenderFee: detailData.tenderFee,
 
           publishDate: detailData.publishDate,
 
@@ -166,20 +169,12 @@ const syncCpppTenders = async () => {
 
           boqItems: detailData.boqItems || [],
 
-          rawData: detailData,
+          rawData: detailData.rawData || {},
         };
-
-        // //print raw data
-        // console.log("RAW INPUT:", JSON.stringify(rawInput, null, 2));
-
         // =========================
         // NORMALIZE
         // =========================
         const normalizedData = normalizeTender(rawInput);
-
-        // //print normalized data
-        // console.log("NORMALIZED:", JSON.stringify(normalizedData, null, 2));
-
         // =========================
         // SAVE
         // =========================
@@ -187,9 +182,9 @@ const syncCpppTenders = async () => {
           ...normalizedData,
           lastScrapedAt: new Date(),
         });
-        console.log(res);
 
-        console.log(`✅ Saved: ${normalizedData.sourceTenderId}`);
+        console.log(`✅ Saved: ${res}`);
+        
       } catch (err) {
         console.error(`❌ Tender ${i + 1} failed:`, err.message);
       } finally {

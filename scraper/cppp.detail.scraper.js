@@ -1,33 +1,35 @@
-const { getBetween, getLastBetween } = require("../utils/cppp.parser");
-
 async function scrapeTenderDetail(page) {
   try {
     if (!page || page.isClosed()) {
       throw new Error("Page already closed");
     }
 
-    await page.waitForSelector("body", {
-      timeout: 30000,
+    await page.waitForLoadState("networkidle");
+    await page.waitForSelector("body", { timeout: 30000 });
+
+    // =========================
+    // EXTRACT ALL LABEL/VALUE FIELDS
+    // =========================
+    const fields = await page.evaluate(() => {
+      const result = {};
+
+      document.querySelectorAll("td.td_caption").forEach((labelTd) => {
+        const label = labelTd.innerText?.replace(/\s+/g, " ").trim();
+
+        const valueTd = labelTd.nextElementSibling;
+
+        if (label && valueTd && valueTd.classList.contains("td_field")) {
+          result[label] = valueTd.innerText?.replace(/\s+/g, " ").trim();
+        }
+      });
+
+      return result;
     });
 
-    const text = await page.textContent("body");
-
-    if (!text || !text.trim()) {
-      throw new Error("Empty page content");
-    }
-
-    const cleanText = text.replace(/\s+/g, " ");
-
-    const safeGet = (start, end) =>
-      getBetween(cleanText, start, end)?.trim() || null;
-
-    const safeLastGet = (start, end) =>
-      getLastBetween(cleanText, start, end)?.trim() || null;
-
     // =========================
-    // CORE IDENTIFIER
+    // TENDER ID CHECK
     // =========================
-    const tenderId = safeGet("Tender ID", "Withdrawal Allowed");
+    const tenderId = fields["Tender ID"];
 
     if (!tenderId) {
       console.log("⚠️ Tender ID not found");
@@ -35,7 +37,7 @@ async function scrapeTenderDetail(page) {
     }
 
     // =========================
-    // DOCUMENTS SCRAPING
+    // DOCUMENTS
     // =========================
     const documents = [];
 
@@ -53,9 +55,10 @@ async function scrapeTenderDetail(page) {
         const isTenderDoc =
           lowerName.includes(".pdf") ||
           lowerName.includes(".xls") ||
+          lowerName.includes(".xlsx") ||
           lowerName.includes("boq") ||
-          lowerName.includes("download as zip") ||
-          lowerName.includes("tendernotice");
+          lowerName.includes("tendernotice") ||
+          lowerName.includes("zip");
 
         if (!isTenderDoc) continue;
 
@@ -63,73 +66,134 @@ async function scrapeTenderDetail(page) {
           name,
           url: href.startsWith("http")
             ? href
-            : `https://etenders.gov.in${href}`,
+            : `https://eprocure.gov.in${href}`,
           type:
-            lowerName.includes("boq") || lowerName.includes(".xls")
+            lowerName.includes("boq") ||
+            lowerName.includes(".xls") ||
+            lowerName.includes(".xlsx")
               ? "BOQ"
               : "TENDER_DOC",
         });
       }
     } catch (err) {
-      console.log("⚠️ Documents extraction failed");
+      console.log("⚠️ Documents extraction failed:", err.message);
     }
 
     // =========================
-    // RETURN DATA
+    // LOCATION
+    // =========================
+    const location = fields["Location"] || fields["Bid Opening Place"] || null;
+
+    // =========================
+    // RETURN
     // =========================
     return {
-      // BASIC
-      organization: safeGet("Organisation Chain", "Tender Reference Number"),
-
-      tenderReferenceNumber: safeGet("Tender Reference Number", "Tender ID"),
-
+      // SOURCE
       tenderId,
+      tenderReferenceNumber: fields["Tender Reference Number"],
 
-      title: safeGet("Title", "Work Description"),
+      sourceUrl: page.url(),
 
-      workDescription: safeGet("Work Description", "NDA/Pre Qualification"),
+      // BASIC
+      title: fields["Title"],
+      description: fields["Work Description"],
+      workDescription: fields["Work Description"],
 
-      category:
-        safeGet("Product Category", "Sub category") ||
-        safeGet("Tender Category", "No. of Covers"),
+      organization: fields["Organisation Chain"],
+      department:
+  fields["Tender Inviting Authority"] ||
+  fields["Organisation Chain"]?.split("||")?.slice(-1)[0] ||
+  null,
+
+      category: fields["Product Category"] || fields["Tender Category"],
+
+      subCategory: fields["Sub category"],
+      tenderCategory: fields["Tender Category"],
 
       // FINANCIAL
-      estimatedCost: safeGet("Tender Value in ₹", "Product Category"),
+      estimatedCost: fields["Tender Value in ₹"] || fields["Tender Value"],
 
-      emdAmount: safeGet("EMD Amount in ₹", "EMD Exemption Allowed"),
+      emdAmount: fields["EMD Amount in ₹"] || fields["EMD Amount"],
 
-      tenderFee: safeGet("Tender Fee in ₹", "Fee Payable To"),
+      tenderFee: fields["Tender Fee in ₹"] || fields["Tender Fee"],
+
+      currency: "INR",
 
       // LOCATION
-      location: safeLastGet("Location", "Pincode"),
-
-      pincode: safeGet("Pincode", "Pre Bid Meeting Place"),
+      location,
+      city: location,
+      state: null,
+      pincode: fields["Pincode"],
 
       // DATES
-      publishDate: safeGet("Published Date", "Bid Opening Date"),
+      publishDate: fields["Published Date"],
 
-      openingDate: safeGet(
-        "Bid Opening Date",
-        "Document Download / Sale Start Date",
-      ),
+      submissionDate: fields["Bid Submission End Date"],
 
-      submissionDate: safeGet("Bid Submission End Date", "Tenders Documents"),
+      openingDate: fields["Bid Opening Date"],
 
-      closingDate: safeGet("Bid Submission End Date", "Tenders Documents"),
+      closingDate: fields["Bid Submission End Date"],
 
-      // OPTIONAL
-      department: safeGet("Tender Inviting Authority", "Name"),
+      bidSubmissionStartDate: fields["Bid Submission Start Date"],
 
-      // DOCUMENTS
+      documentDownloadStartDate: fields["Document Download / Sale Start Date"],
+
+      documentDownloadEndDate: fields["Document Download / Sale End Date"],
+
+      clarificationStartDate: fields["Clarification Start Date"],
+
+      clarificationEndDate: fields["Clarification End Date"],
+
+      preBidMeetingDate: fields["Pre Bid Meeting Date"],
+
+      // CONTRACT
+      tenderType: fields["Tender Type"],
+
+      contractType: fields["Contract Type"],
+
+      formOfContract: fields["Form Of Contract"] || fields["Form of Contract"],
+
+      noOfCovers: fields["No. of Covers"],
+
+      bidValidity: fields["Bid Validity(Days)"],
+
+      periodOfWork: fields["Period Of Work(Days)"],
+
+      ndaPreQualification: fields["NDA/Pre Qualification"],
+
+      // AUTHORITY
+      authorityName: fields["Name"],
+
+      address: fields["Address"],
+
+      paymentMode: fields["Payment Mode"],
+
+      emdPayableTo: fields["EMD Payable To"],
+
+      emdPayableAt: fields["EMD Payable At"],
+
+      // PLACES
+      bidOpeningPlace: fields["Bid Opening Place"],
+
+      preBidMeetingPlace: fields["Pre Bid Meeting Place"],
+
+      preBidMeetingAddress: fields["Pre Bid Meeting Address"],
+
+      // DOCUMENT INFO
+      nitDocument: fields["NIT Document"],
+
+      workItemDocuments: fields["Work Item Documents"],
+
+      // FILES
       documents,
-
-      // FUTURE
       boqItems: [],
 
-      // DEBUG
+      // RAW
+      rawData: fields,
+
       _meta: {
         extractedAt: new Date(),
-        pageLength: cleanText.length,
+        fieldsFound: Object.keys(fields).length,
         documentsFound: documents.length,
       },
     };
