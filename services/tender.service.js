@@ -32,11 +32,7 @@ const saveTender = async (tenderData) => {
       runValidators: true,
     };
 
-    const tender = await Tender.findOneAndUpdate(
-      filter,
-      update,
-      options,
-    );
+    const tender = await Tender.findOneAndUpdate(filter, update, options);
 
     return tender;
   } catch (error) {

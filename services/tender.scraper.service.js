@@ -102,7 +102,7 @@ const syncCpppTenders = async () => {
         const rawInput = {
           sourcePortal: "CPPP",
           sourceTenderId: detailData.tenderId,
-sourceUrl: detailData.sourceUrl,
+          sourceUrl: detailData.sourceUrl,
           tenderReferenceNumber: detailData.tenderReferenceNumber,
           subCategory: detailData.subCategory,
           tenderCategory: detailData.tenderCategory,
@@ -182,9 +182,6 @@ sourceUrl: detailData.sourceUrl,
           ...normalizedData,
           lastScrapedAt: new Date(),
         });
-
-        console.log(`✅ Saved: ${res}`);
-        
       } catch (err) {
         console.error(`❌ Tender ${i + 1} failed:`, err.message);
       } finally {

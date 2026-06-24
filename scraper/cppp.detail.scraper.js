@@ -101,9 +101,9 @@ async function scrapeTenderDetail(page) {
 
       organization: fields["Organisation Chain"],
       department:
-  fields["Tender Inviting Authority"] ||
-  fields["Organisation Chain"]?.split("||")?.slice(-1)[0] ||
-  null,
+        fields["Tender Inviting Authority"] ||
+        fields["Organisation Chain"]?.split("||")?.slice(-1)[0] ||
+        null,
 
       category: fields["Product Category"] || fields["Tender Category"],
 

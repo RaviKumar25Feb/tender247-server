@@ -6,7 +6,7 @@ require("dotenv").config();
 const { dbConnect } = require("./configs/dbConnect");
 const authRoutes = require("./routes/auth.routes");
 const tenderRoutes = require("./routes/tender.routes");
-
+const categoryRoutes = require("./routes/categoryRoutes")
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -46,6 +46,7 @@ app.get("/", (req, res) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/tenders", tenderRoutes);
+app.use("/api/", categoryRoutes);
 
 // ================= HEALTH CHECK =================
 app.get("/health", (req, res) => {
