@@ -1,3 +1,5 @@
+const { search } = require("india-pincode-search");
+
 const cleanText = (text) => {
   if (text === undefined || text === null) return null;
 
@@ -6,29 +8,51 @@ const cleanText = (text) => {
   return cleaned || null;
 };
 
+const toTitleCase = (str) => {
+  if (!str) return null;
+
+  return String(str)
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+};
+
 /**
  * Normalize location
  */
-const normalizeLocation = (location) => {
-  if (!location) {
-    return {
-      city: null,
-      state: null,
-    };
-  }
-
-  const cleaned = String(location).replace(/\s+/g, " ").trim();
-
+const normalizeLocation = (location, pincode) => {
   let city = null;
   let state = null;
 
-  const parts = cleaned.split(",");
+  // Priority 1: Pincode lookup
+  if (pincode) {
+    try {
+      const result = search(String(pincode));
 
-  if (parts.length >= 2) {
-    city = parts[0]?.trim() || null;
-    state = parts[1]?.trim() || null;
-  } else {
-    city = cleaned;
+      if (Array.isArray(result) && result.length > 0) {
+        city = toTitleCase(result[0].city || result[0].district);
+
+        state = toTitleCase(result[0].state);
+      }
+    } catch (error) {
+      console.log(`⚠️ Pincode lookup failed for ${pincode}:`, error.message);
+    }
+  }
+
+  // Priority 2: Fallback to location parsing
+  if (!city || !state) {
+    if (location) {
+      const cleaned = String(location).replace(/\s+/g, " ").trim();
+
+      const parts = cleaned.split(",");
+
+      if (parts.length >= 2) {
+        city = city || toTitleCase(parts[0]?.trim());
+
+        state = state || toTitleCase(parts[1]?.trim());
+      } else {
+        city = city || toTitleCase(cleaned);
+      }
+    }
   }
 
   return {
@@ -162,7 +186,10 @@ const normalizeTender = (data) => {
 
   const description = cleanText(data.description || data.workDescription);
 
-  const locationData = normalizeLocation(data.location || data.city);
+  const locationData = normalizeLocation(
+    data.location || data.city,
+    data.pincode,
+  );
 
   return {
     // SOURCE
@@ -240,13 +267,20 @@ const normalizeTender = (data) => {
     category: cleanText(data.category),
 
     // LOCATION
-    location: cleanText(data.location || data.city),
+    location: cleanText(data.location),
 
-    city: cleanText(data.city || locationData.city),
+    city: cleanText(locationData.city),
 
-    state: cleanText(data.state || locationData.state),
+    state: cleanText(locationData.state),
 
     pincode: cleanText(data.pincode),
+
+    fullLocation: [
+      locationData.city || data.city,
+      locationData.state || data.state,
+    ]
+      .filter(Boolean)
+      .join(", "),
 
     // DATES
     publishDate: parseDate(data.publishDate),

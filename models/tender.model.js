@@ -88,6 +88,8 @@ const tenderSchema = new mongoose.Schema(
     // =========================
     location: String,
 
+    fullLocation: { type: String },
+
     city: {
       type: String,
       index: true,

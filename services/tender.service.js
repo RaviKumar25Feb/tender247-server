@@ -27,7 +27,7 @@ const saveTender = async (tenderData) => {
 
     const options = {
       upsert: true,
-      new: true,
+      returnDocument: "after",
       setDefaultsOnInsert: true,
       runValidators: true,
     };
